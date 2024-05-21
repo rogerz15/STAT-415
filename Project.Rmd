@@ -1,0 +1,143 @@
+---
+title: "Final Project - Regression (STAT-415"
+author: "Ran Zhang, James Trinkle, Shuyu Ma"
+date: "STAT-415, `r lubridate::year(Sys.Date())`"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '1'
+  pdf_document:
+    toc: yes
+    toc_depth: 1
+    number_sections: yes
+urlcolor: blue
+---
+#Load Libraries
+```{r setup, include=FALSE}
+library(readxl)
+library(tidyverse)
+library(car)
+library(leaps)
+library(sandwich)
+library(lmtest)
+```
+
+```{r}
+pm1<- read_excel("wildfire_pv_data.xlsx",sheet=3) 
+#pm1
+sun<- read.csv("sunshine.csv") 
+#sun
+pm1$row<- seq_len(nrow(pm1))
+sun$row<- seq_len(nrow(sun))
+pm2<- merge(pm1, sun, by = "row", all = TRUE)
+#pm2
+pm2 %>% 
+   filter(row<335) %>% 
+  select(date,energy_generated_kWh,PRECTOT,T2M,WS10M,pm25,sun_hours)->pm
+head(pm,3)
+tail(pm,3)
+pm
+```
+
+```{r}
+pairs(select(pm, -date))
+par(mfrow=c(2,2))
+plot(pm$energy_generated_kWh, type="l")
+hist(pm$energy_generated_kWh)
+plot(pm$PRECTOT, type="l")
+hist(pm$PRECTOT)
+plot(pm$T2M, type="l")
+hist(pm$T2M)
+plot(pm$WS10M, type="l")
+hist(pm$WS10M)
+plot(pm$pm25, type="l")
+hist(pm$pm25)
+plot(pm$sun_hours, type="l")
+hist(pm$sun_hours)
+```
+
+
+```{r}
+# Preliminary model
+pm.reg<-lm(energy_generated_kWh~PRECTOT+T2M+WS10M+pm25+sun_hours,data=pm)
+summary(pm.reg)
+```
+
+```{r}
+qqnorm(pm.reg$resi)
+qqline(pm.reg$resi)
+```
+
+```{r}
+step(pm.reg, direction="both")
+```
+
+```{r}
+# model 1
+pm.reg1<-lm(energy_generated_kWh~PRECTOT+pm25+sun_hours,data=pm)
+summary(pm.reg1)
+```
+
+```{r}
+qqnorm(pm.reg1$resi)
+qqline(pm.reg1$resi)
+plot(pm.reg1$fit,pm.reg1$resi)
+plot(pm$PRECTOT,pm.reg1$resi)
+plot(pm$pm25,pm.reg1$resi)
+plot(pm$sun_hours,pm.reg1$resi)
+avPlots(pm.reg1)
+```
+
+```{r}
+# Checking outlying
+hii<- hatvalues(pm.reg1)
+n <- 334 
+p <- 4 
+cri_value <- (2*p)/n 
+outlying_X <- hii > cri_value 
+outlying_X_ID <- unique(which(outlying_X))
+outlying_X_ID
+```
+
+```{r}
+# Remove Outlying
+pm1 <- pm[-outlying_X_ID, ]
+```
+
+```{r}
+# model 2
+pm.reg2<-lm(energy_generated_kWh~PRECTOT+pm25+sun_hours,data=pm1)
+summary(pm.reg2)
+```
+
+```{r}
+qqnorm(pm.reg2$resi)
+qqline(pm.reg2$resi)
+plot(pm.reg2$fit, pm.reg2$resi)
+plot(pm1$PRECTOT, pm.reg2$resi)
+plot(pm1$pm25, pm.reg2$resi)
+plot(pm1$sun_hours, pm.reg2$resi)
+avPlots(pm.reg2)
+```
+
+
+```{r}
+# model 3
+pm1$PRECTOT_log = log(pm1$PRECTOT+1)
+pm.reg3 <- lm(energy_generated_kWh ~ PRECTOT_log + pm25 + sun_hours, data = pm1)
+summary(pm.reg3)
+```
+
+```{r}
+qqnorm(pm.reg3$resi)
+qqline(pm.reg3$resi)
+plot(pm.reg3$fit,pm.reg3$resi)
+plot(pm1$PRECTOT_log,pm.reg3$resi)
+plot(pm1$sun_hours,pm.reg3$resi)
+avPlots(pm.reg3)
+```
+
+```{r}
+dwtest(pm.reg3, alternative = "two.sided")
+```
+

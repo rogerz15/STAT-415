@@ -1,0 +1,53 @@
+---
+title: "Sunshine data"
+author: "Ran Zhang"
+date: "2023-10-18"
+output: html_document
+---
+
+```{r}
+pacman::p_load(rvest, dplyr, tidyverse, xml2)
+
+urls <- c(
+  "https://www.timeanddate.com/sun/usa/california-city?month=4&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=5&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=6&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=7&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=8&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=9&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=10&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=11&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=12&year=2018",
+  "https://www.timeanddate.com/sun/usa/california-city?month=1&year=2019",
+  "https://www.timeanddate.com/sun/usa/california-city?month=2&year=2019")
+
+combined_data<- character()
+
+for (url in urls) {
+  page<- read_html(url)
+  
+  table<- page %>%
+    html_node(xpath = '//*[@id="as-monthsun"]/tbody') %>%
+    html_table()
+  
+  column_data<- table$X4 
+  
+  combined_data<- c(combined_data, column_data)
+}
+
+data<- data.frame(Length = combined_data)
+
+convert_time_to_hours<- function(time_str) {
+  time_components<- unlist(strsplit(time_str, ":"))
+  hours<- as.numeric(time_components[1]) + as.numeric(time_components[2]) / 60 + as.numeric(time_components[3]) / 3600
+  return(hours)
+}
+
+data$sun_hours<- sapply(data$Length, convert_time_to_hours)
+
+data<- subset(data, sun_hours != "Note: hours shift because clocks change backward 1 hour. (See the note below this table for details)")
+
+write.csv(data, "sunshine.csv", row.names = FALSE)
+```
+
+
